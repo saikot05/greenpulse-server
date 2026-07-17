@@ -1,2 +1,2 @@
-// Business logic/services layer exports (to be implemented)
-export {};
+export { aiService, AiService } from './ai.service.js';
+export type { IParsedBill, IAiInsightsOutput } from './ai.service.js';

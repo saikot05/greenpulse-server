@@ -1,2 +1,1 @@
-// Custom TypeScript interfaces exports (to be implemented)
-export {};
+export type { AuthenticatedRequest } from './auth.interface.js';

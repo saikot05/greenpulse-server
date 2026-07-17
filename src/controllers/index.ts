@@ -1,2 +1,2 @@
-// Controllers layer exports (to be implemented)
-export {};
+export { aiController, AiController } from './ai.controller.js';
+export { auditController, AuditController } from './audit.controller.js';
