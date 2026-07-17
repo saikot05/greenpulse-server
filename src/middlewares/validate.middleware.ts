@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import type { ZodTypeAny } from 'zod';
+import type { ZodTypeAny, ZodIssue } from 'zod';
 import { AppError } from '../utils/AppError.js';
 
 export interface RequestValidationSchema {
@@ -29,7 +29,7 @@ export const validate = (schema: RequestValidationSchema) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errorMessages = error.errors.map((issue) => {
+        const errorMessages = error.issues.map((issue: ZodIssue) => {
           const path = issue.path.join('.');
           return `${path ? `'${path}': ` : ''}${issue.message}`;
         });

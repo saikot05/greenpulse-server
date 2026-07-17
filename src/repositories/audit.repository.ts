@@ -1,17 +1,17 @@
-import type { FilterQuery } from 'mongoose';
+import type mongoose from 'mongoose';
 import { BaseRepository } from './base.repository.js';
 import { EsgAudit } from '../models/EsgAudit.model.js';
-import type { IEsgAudit } from '../models/EsgAudit.model.js';
+import type { IEsgAudit, FacilityType, RiskRating, ScopeCategory } from '../models/EsgAudit.model.js';
 import { AppError } from '../utils/AppError.js';
 
 export interface AuditQueryParams {
   page: number;
   limit: number;
   search?: string;
-  facilityType?: string;
-  riskRating?: string;
+  facilityType?: FacilityType;
+  riskRating?: RiskRating;
   auditYear?: number;
-  scopeCategory?: string;
+  scopeCategory?: ScopeCategory;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
 }
@@ -51,9 +51,9 @@ export class EsgAuditRepository extends BaseRepository<IEsgAudit> {
         sortOrder,
       } = query;
 
-      const filter: FilterQuery<IEsgAudit> = {};
+      const filter: mongoose.QueryFilter<IEsgAudit> = {};
 
-      // Direct multi-field filters
+      // Direct multi-field filters using strict typings
       if (facilityType) {
         filter.facilityType = facilityType;
       }

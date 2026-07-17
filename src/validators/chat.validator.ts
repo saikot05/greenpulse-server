@@ -5,11 +5,11 @@ import { z } from 'zod';
  */
 export const sendMessageSchema = z.object({
   sessionId: z
-    .string({ required_error: 'Session ID is required.' })
+    .string({ message: 'Session ID is required.' })
     .min(1, 'Session ID cannot be empty.')
     .trim(),
   message: z
-    .string({ required_error: 'Message content is required.' })
+    .string({ message: 'Message content is required.' })
     .min(1, 'Message content cannot be empty.')
     .trim(),
 });

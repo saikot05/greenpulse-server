@@ -1,4 +1,4 @@
-import type { Model, Document, FilterQuery, QueryOptions, UpdateQuery } from 'mongoose';
+import type mongoose from 'mongoose';
 import { AppError } from '../utils/AppError.js';
 
 /**
@@ -6,8 +6,8 @@ import { AppError } from '../utils/AppError.js';
  * Wraps core database operations (CRUD) for any Mongoose Model.
  * Translates low-level MongoDB exceptions into structured, formatted AppErrors.
  */
-export abstract class BaseRepository<T extends Document> {
-  protected constructor(protected readonly model: Model<T>) {}
+export abstract class BaseRepository<T extends mongoose.Document> {
+  protected constructor(protected readonly model: mongoose.Model<T>) {}
 
   /**
    * Insert a new document.
@@ -41,7 +41,7 @@ export abstract class BaseRepository<T extends Document> {
   /**
    * Query a single document matching custom filters.
    */
-  public async findOne(filter: FilterQuery<T>): Promise<T | null> {
+  public async findOne(filter: mongoose.QueryFilter<T>): Promise<T | null> {
     try {
       return await this.model.findOne(filter).exec();
     } catch (error) {
@@ -55,7 +55,7 @@ export abstract class BaseRepository<T extends Document> {
   /**
    * Query multiple documents matching custom filters.
    */
-  public async find(filter: FilterQuery<T>, options?: QueryOptions): Promise<T[]> {
+  public async find(filter: mongoose.QueryFilter<T>, options?: mongoose.QueryOptions): Promise<T[]> {
     try {
       return await this.model.find(filter, null, options).exec();
     } catch (error) {
@@ -69,7 +69,7 @@ export abstract class BaseRepository<T extends Document> {
   /**
    * Update a document by its ObjectId.
    */
-  public async updateById(id: string, data: UpdateQuery<T>): Promise<T | null> {
+  public async updateById(id: string, data: mongoose.UpdateQuery<T>): Promise<T | null> {
     try {
       return await this.model.findByIdAndUpdate(id, data, { new: true }).exec();
     } catch (error) {
@@ -97,7 +97,7 @@ export abstract class BaseRepository<T extends Document> {
   /**
    * Count documents matching custom filters.
    */
-  public async count(filter: FilterQuery<T>): Promise<number> {
+  public async count(filter: mongoose.QueryFilter<T>): Promise<number> {
     try {
       return await this.model.countDocuments(filter).exec();
     } catch (error) {
@@ -108,3 +108,4 @@ export abstract class BaseRepository<T extends Document> {
     }
   }
 }
+export default BaseRepository;
