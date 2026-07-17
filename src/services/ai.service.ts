@@ -34,7 +34,7 @@ If any value is missing, estimate it realistically based on the facility type an
 Respond strictly in JSON matching the specified schema.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         contents: [
           {
             role: 'user',
@@ -118,7 +118,7 @@ Audit Data:
 Respond strictly in JSON format.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -166,7 +166,7 @@ Respond strictly in JSON format.`;
 Respond strictly in JSON.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
