@@ -48,7 +48,11 @@ export const auth = async (
       return next(new AppError('Internal Server Error: Database connection is unavailable.', 500));
     }
 
-    const session = await db.collection('session').findOne({ token });
+    // Better Auth signed cookies are in the format: <token>.<signature>
+    // The database only stores the first part (raw token).
+    const rawToken = token.split('.')[0] ?? '';
+
+    const session = await db.collection('session').findOne({ token: rawToken });
     if (!session) {
       return next(new AppError('Unauthorized: Invalid or expired session.', 401));
     }
