@@ -1,6 +1,6 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { SignJWT, jwtVerify } = require('jose');
+const { SignJWT, jwtVerify } = require('jose-cjs');
 
 /**
  * Signs a payload to generate a JWT token using jose CJS build.
