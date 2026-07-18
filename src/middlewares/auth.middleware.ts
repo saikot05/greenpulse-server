@@ -80,4 +80,36 @@ export const auth = async (
   }
 };
 
+/**
+ * Route guard middleware to restrict endpoint access by user roles.
+ */
+export const requireRole = (allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    const user = req.user;
+    if (!user) {
+      return next(new AppError('Unauthorized: Authentication required.', 401));
+    }
+    
+    const userRole = user.role.toLowerCase();
+    const normalizedAllowed = allowedRoles.map(r => r.toLowerCase().replace(/[\s_-]+/g, ''));
+    const matchedRole = normalizedAllowed.some(r => {
+      if (r === 'administrator' || r === 'admin') {
+        return userRole === 'admin';
+      }
+      if (r === 'auditor') {
+        return userRole === 'auditor';
+      }
+      if (r === 'facilitymanager') {
+        return userRole === 'facility_manager';
+      }
+      return userRole === r;
+    });
+
+    if (!matchedRole) {
+      return next(new AppError('Forbidden: You do not have permission to access this resource.', 403));
+    }
+    next();
+  };
+};
+
 export default auth;
