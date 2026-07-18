@@ -18,8 +18,16 @@ export interface Config {
 const validateEnv = (): Config => {
   const rawPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   const NODE_ENV = process.env.NODE_ENV || 'development';
-  const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
-  const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/greenpulse';
+  const CORS_ORIGIN = process.env.CORS_ORIGIN;
+  const MONGO_URI = process.env.MONGO_URI;
+
+  if (!CORS_ORIGIN) {
+    throw new Error('Environment validation error: CORS_ORIGIN is required.');
+  }
+
+  if (!MONGO_URI) {
+    throw new Error('Environment validation error: MONGO_URI is required.');
+  }
 
   if (isNaN(rawPort)) {
     throw new Error('Environment validation error: PORT environment variable must be a valid number.');

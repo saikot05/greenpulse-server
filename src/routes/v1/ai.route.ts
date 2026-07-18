@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { aiController } from '../../controllers/ai.controller.js';
-import { upload } from '../../middlewares/upload.middleware.js';
+import { aiController, uploadMiddleware } from '../../controllers/ai.controller.js';
 import { auth } from '../../middlewares/auth.middleware.js';
 
 export const aiRouter = Router();
@@ -10,10 +9,41 @@ export const aiRouter = Router();
  * Description: Protected endpoint to upload a utility bill image/PDF and parse it via Gemini AI.
  */
 aiRouter.post(
-  '/ai/parse-bill',
+  '/parse-bill',
   auth,
-  upload.single('file'),
+  uploadMiddleware.single('file'),
   aiController.parseBill
+);
+
+/**
+ * Route: POST /api/v1/ai/chat
+ * Description: Protected. Chat with the Net-Zero sustainability agent, keeping MongoDB history.
+ */
+aiRouter.post(
+  '/chat',
+  auth,
+  aiController.chatWithAgent
+);
+
+/**
+ * Route: GET /api/v1/ai/chat/history
+ * Description: Protected. Retrieves chat logs by sessionId.
+ */
+aiRouter.get(
+  '/chat/history',
+  auth,
+  aiController.getChatHistory
+);
+
+/**
+ * Route: POST /api/v1/ai/analyze-data
+ * Description: Protected. Upload energy telemetry CSV/JSON file to perform carbon analysis.
+ */
+aiRouter.post(
+  '/analyze-data',
+  auth,
+  uploadMiddleware.single('file'),
+  aiController.analyzeTelemetryData
 );
 
 export default aiRouter;

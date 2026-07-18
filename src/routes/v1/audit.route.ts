@@ -27,4 +27,24 @@ auditRouter.get(
   auditController.getAudits
 );
 
+/**
+ * Route: GET /api/v1/audits/:id
+ * Description: Public. Retrieves a specific ESG audit by its ID.
+ */
+auditRouter.get(
+  '/audits/:id',
+  auditController.getAuditById
+);
+
+/**
+ * Route: DELETE /api/v1/audits/:id
+ * Description: Protected. Deletes a specific ESG audit by its ID if created by the current user.
+ */
+auditRouter.delete(
+  '/audits/:id',
+  auth,
+  auditController.deleteAudit
+);
+
 export default auditRouter;
+

@@ -75,6 +75,7 @@ export const createAuditSchema = z.object({
       z.string().min(1, 'Individual tag cannot be empty.').trim()
     )
     .optional(),
+  createdBy: z.string().optional(),
 });
 
 /**
