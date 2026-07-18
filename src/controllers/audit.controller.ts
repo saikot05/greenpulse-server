@@ -5,6 +5,23 @@ import { aiService } from '../services/ai.service.js';
 import { AppError } from '../utils/AppError.js';
 import type { AuthenticatedRequest } from '../interfaces/auth.interface.js';
 
+function getFacilityFallbackImage(type: string): string {
+  switch (type) {
+    case 'Corporate Office':
+      return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800';
+    case 'Manufacturing':
+      return 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800';
+    case 'Logistics Hub':
+      return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800';
+    case 'Data Center':
+      return 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800';
+    case 'Retail Store':
+      return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800';
+    default:
+      return 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800';
+  }
+}
+
 export class AuditController {
   /**
    * Endpoint: POST /api/v1/audits
@@ -72,6 +89,11 @@ export class AuditController {
         }
       }
 
+      // 3. Auto-assign fallback image if not provided
+      if (!auditData.imageUrl) {
+        auditData.imageUrl = getFacilityFallbackImage(auditData.facilityType);
+      }
+
       // Convert creator ID from Better Auth string to Mongoose ObjectId
       const createdBy = new Types.ObjectId(String(user._id));
 
@@ -104,6 +126,16 @@ export class AuditController {
 
       const result = await esgAuditRepository.findWithFilters(queryParams);
 
+      if (result && Array.isArray(result.results)) {
+        result.results = result.results.map((audit: any) => {
+          const plainAudit = audit.toObject ? audit.toObject() : audit;
+          if (!plainAudit.imageUrl) {
+            plainAudit.imageUrl = getFacilityFallbackImage(plainAudit.facilityType);
+          }
+          return plainAudit;
+        });
+      }
+
       res.status(200).json({
         status: 'success',
         data: result,
@@ -130,9 +162,14 @@ export class AuditController {
         return next(new AppError('Audit not found.', 404));
       }
 
+      const plainAudit = audit.toObject ? audit.toObject() : audit;
+      if (!plainAudit.imageUrl) {
+        plainAudit.imageUrl = getFacilityFallbackImage(plainAudit.facilityType);
+      }
+
       res.status(200).json({
         status: 'success',
-        data: audit,
+        data: plainAudit,
       });
     } catch (error) {
       next(error);
