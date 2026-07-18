@@ -97,19 +97,19 @@ export class AiService {
     try {
       return await this.callGeminiWithRetry(() =>
         ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.0-flash',
           contents,
           config: configOptions,
         })
       );
     } catch (primaryError: any) {
       console.warn(
-        `[Gemini Fallback]: Primary model gemini-3.5-flash failed after retries. Reason: ${
+        `[Gemini Fallback]: Primary model gemini-2.0-flash failed after retries. Reason: ${
           primaryError.message || primaryError
-        }. Trying fallback gemini-2.0-flash...`
+        }. Trying fallback gemini-1.5-flash...`
       );
       return await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents,
         config: configOptions,
       });
@@ -136,7 +136,7 @@ If certain values are missing or cannot be visibly found, calculate or use these
 - For fullOverview: A detailed audit summary paragraph (min 20 characters).`;
 
       const result = await generateObject({
-        model: google('gemini-2.5-flash'),
+        model: google('gemini-2.0-flash'),
         schema: UtilityBillSchema,
         messages: [
           {

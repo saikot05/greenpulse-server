@@ -11,7 +11,7 @@ export const analyzeCarbonData = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const analysisResult = await analyzeCarbonDataService(payload.data);
+    const analysisResult = await analyzeCarbonDataService(payload);
     
     res.status(200).json({
       success: true,

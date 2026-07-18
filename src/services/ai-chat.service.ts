@@ -69,7 +69,7 @@ Be professional, structured, and prioritize carbon reductions.`;
 
       // 3. Invoke streamText
       const result = streamText({
-        model: google('gemini-3.5-flash'),
+        model: google('gemini-2.0-flash'),
         messages: formattedMessages,
         system: systemPrompt,
         onFinish: async ({ text }) => {
