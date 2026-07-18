@@ -46,4 +46,11 @@ aiRouter.post(
   aiController.analyzeTelemetryData
 );
 
+aiRouter.post(
+  '/analyze-telemetry',
+  auth,
+  uploadMiddleware.single('file'),
+  aiController.analyzeTelemetry
+);
+
 export default aiRouter;

@@ -4,7 +4,7 @@ import { aiService, aiChatService } from '../services/index.js';
 import { AppError } from '../utils/AppError.js';
 import { conversationRepository } from '../repositories/index.js';
 import type { AuthenticatedRequest } from '../interfaces/auth.interface.js';
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { z } from 'zod';
@@ -158,12 +158,54 @@ If certain values are missing or cannot be visibly found, use these safe default
         return next(new AppError('Unauthorized: Authentication required.', 401));
       }
 
-      const { messages, sessionId } = req.body;
+      const { messages, sessionId, stream } = req.body;
       if (!messages || !Array.isArray(messages)) {
         return next(new AppError('Messages array is required.', 400));
       }
+
+      const isStreaming = stream !== false;
+
+      if (!isStreaming) {
+        const systemPrompt = `You are a Senior Sustainability & Decarbonization Consultant for GreenPulse AI.
+Your job is to answer questions regarding carbon footprints, energy mitigation, and audit strategies.
+Be professional, structured, and prioritize carbon reductions.`;
+
+        let textResult = '';
+        try {
+          console.log('[AI Controller]: Generating non-stream chat response with Google Gemini (Primary)...');
+          const response = await generateText({
+            model: google('gemini-2.0-flash'),
+            system: systemPrompt,
+            messages: messages.map((m: any) => ({
+              role: m.role || (m.sender === 'user' ? 'user' : 'assistant'),
+              content: m.content || m.text || '',
+            })),
+          });
+          textResult = response.text;
+        } catch (geminiError: any) {
+          console.warn('[AI Controller]: Gemini chat failed. Falling back to Mistral AI...', geminiError.message || geminiError);
+          const response = await generateText({
+            model: mistral('pixtral-12b-2409'),
+            system: systemPrompt,
+            messages: messages.map((m: any) => ({
+              role: m.role || (m.sender === 'user' ? 'user' : 'assistant'),
+              content: m.content || m.text || '',
+            })),
+          });
+          textResult = response.text;
+        }
+
+        res.status(200).json({
+          status: 'success',
+          data: {
+            text: textResult,
+          },
+        });
+        return;
+      }
+
       if (!sessionId) {
-        return next(new AppError('Session ID is required.', 400));
+        return next(new AppError('Session ID is required for streaming mode.', 400));
       }
 
       const result = await aiChatService.streamChatResponse(
@@ -255,6 +297,77 @@ If certain values are missing or cannot be visibly found, use these safe default
       res.status(200).json({
         status: 'success',
         data: conversation || { messages: [] },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Endpoint: POST /api/v1/ai/analyze-telemetry
+   * Protected. Uploads CSV or JSON telemetry data to return structured AI insights.
+   */
+  public analyzeTelemetry = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return next(new AppError('Unauthorized: Authentication required.', 401));
+      }
+
+      const file = req.file;
+      if (!file) {
+        return next(new AppError('No telemetry file was uploaded.', 400));
+      }
+
+      const rawDataText = file.buffer.toString('utf-8');
+
+      const TelemetryAnalysisSchema = z.object({
+        summary: z.string().describe('Overall trend analysis of the telemetry data'),
+        anomalies: z.array(z.string()).describe('List of spikes or unusual patterns'),
+        kpiMetrics: z.object({
+          totalEmissions: z.number().describe('Total carbon emissions calculated in metric tons CO2e'),
+          peakUsageTime: z.string().describe('Time period showing peak consumption'),
+          efficiencyScore: z.number().describe('Calculated energy efficiency score from 0 to 100')
+        }),
+        chartData: z.array(
+          z.object({
+            label: z.string().describe('Label indicator, e.g. "Hour 1", "Day 1"'),
+            emissions: z.number().describe('Estimated carbon emissions in metric tons'),
+            consumption: z.number().describe('Estimated consumption in kWh')
+          })
+        ).describe('Breakdown of logs for Recharts charting')
+      });
+
+      const systemPrompt = `You are a Senior Sustainability & Carbon Telemetry Analyst for GreenPulse AI.
+Analyze the following raw energy or utility logs (CSV/JSON format) and return structured compliance analysis.
+Calculate Scope 1/2/3 carbon footprint emissions based on the consumption logs.`;
+
+      let result;
+      try {
+        console.log('[AI Controller]: Analyzing telemetry with Google Gemini (Primary)...');
+        result = await generateObject({
+          model: google('gemini-2.0-flash'),
+          schema: TelemetryAnalysisSchema,
+          system: systemPrompt,
+          prompt: rawDataText.slice(0, 10000), // Slice to prevent exceeding model input limits
+        });
+      } catch (geminiError: any) {
+        console.warn('[AI Controller]: Gemini telemetry analysis failed. Initiating self-healing routing via Mistral AI...', geminiError.message || geminiError);
+        result = await generateObject({
+          model: mistral('pixtral-12b-2409'),
+          schema: TelemetryAnalysisSchema,
+          system: systemPrompt,
+          prompt: rawDataText.slice(0, 10000),
+        });
+      }
+
+      res.status(200).json({
+        status: 'success',
+        data: result.object,
       });
     } catch (error) {
       next(error);
