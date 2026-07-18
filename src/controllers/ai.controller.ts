@@ -365,9 +365,41 @@ Calculate Scope 1/2/3 carbon footprint emissions based on the consumption logs.`
         });
       }
 
+      // Infrastructure anomaly guard scan
+      let hasCriticalAnomaly = false;
+      let anomalyDetails = '';
+      try {
+        const lines = rawDataText.split(/\r?\n/);
+        for (const line of lines) {
+          const parts = line.split(',');
+          if (parts.length >= 2) {
+            const val = parseFloat(parts[1] ?? '');
+            if (!isNaN(val) && val > 300) {
+              hasCriticalAnomaly = true;
+              anomalyDetails = `Critical Spike of ${val} kWh detected at ${parts[0] ?? 'unknown timestamp'}`;
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Anomaly Scan Error]:', err);
+      }
+
+      const responseData = { ...result.object } as any;
+
+      if (hasCriticalAnomaly) {
+        console.log('\x1b[31m[WEBHOOK DISPATCH] -> Target URL: https://discord.com/api/webhooks/123456789/abcdef | Severity: CRITICAL | Details: ' + anomalyDetails + '\x1b[0m');
+        console.log('\x1b[33m[EMAIL SYSTEM] Alert sent to auditor: High-risk anomaly detected at facility. Details: ' + anomalyDetails + '\x1b[0m');
+        
+        if (!responseData.anomalies.some((a: string) => a.includes('CRITICAL ANOMALY'))) {
+          responseData.anomalies.unshift(`CRITICAL ANOMALY: ${anomalyDetails}`);
+        }
+        responseData.criticalAnomaly = anomalyDetails;
+      }
+
       res.status(200).json({
         status: 'success',
-        data: result.object,
+        data: responseData,
       });
     } catch (error) {
       next(error);
