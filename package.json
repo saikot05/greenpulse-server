@@ -18,6 +18,7 @@
     "@ai-sdk/mistral": "^4.0.13",
     "@ai-sdk/openai": "^4.0.16",
     "@google/genai": "^2.12.0",
+    "@napi-rs/canvas": "^1.0.2",
     "ai": "^7.0.31",
     "axios": "^1.18.1",
     "cors": "^2.8.6",
