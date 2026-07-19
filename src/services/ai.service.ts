@@ -65,16 +65,19 @@ export class AiService {
       try {
         return await fn();
       } catch (error: any) {
-        const isRateLimit =
+        const errorMsg = String(error.message || '').toLowerCase();
+        const isQuotaExceeded =
+          errorMsg.includes('quota exceeded') ||
+          errorMsg.includes('limit: 0') ||
+          errorMsg.includes('resource_exhausted') ||
           error.status === 429 ||
-          error.statusCode === 429 ||
-          (error.message &&
-            (error.message.includes('429') ||
-              error.message.includes('RESOURCE_EXHAUSTED') ||
-              error.message.toLowerCase().includes('quota') ||
-              error.message.toLowerCase().includes('limit')));
+          error.statusCode === 429;
 
-        if (isRateLimit && attempt < retries) {
+        // If it is a quota/rate limit error and we have retries left, wait and retry.
+        // BUT if limit is explicitly 0 (exhausted for the day), fail fast.
+        const isHardExhausted = errorMsg.includes('limit: 0') || errorMsg.includes('plan and billing');
+
+        if (isQuotaExceeded && !isHardExhausted && attempt < retries) {
           console.warn(
             `[Gemini API] Rate limit reached. Retrying in ${
               currentDelay / 1000
@@ -103,16 +106,33 @@ export class AiService {
         })
       );
     } catch (primaryError: any) {
+      const errorMsg = String(primaryError.message || '').toLowerCase();
+      const isQuotaExceeded =
+        errorMsg.includes('quota exceeded') ||
+        errorMsg.includes('limit: 0') ||
+        errorMsg.includes('resource_exhausted') ||
+        primaryError.status === 429;
+
+      if (isQuotaExceeded) {
+        console.warn('[Gemini Service]: Quota exhausted on primary model. Skipping fallbacks.');
+        throw primaryError;
+      }
+
       console.warn(
-        `[Gemini Fallback]: Primary model gemini-2.0-flash failed after retries. Reason: ${
+        `[Gemini Fallback]: Primary model gemini-2.0-flash failed. Reason: ${
           primaryError.message || primaryError
         }. Trying fallback gemini-1.5-flash...`
       );
-      return await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents,
-        config: configOptions,
-      });
+      try {
+        return await ai.models.generateContent({
+          model: 'gemini-1.5-flash',
+          contents,
+          config: configOptions,
+        });
+      } catch (fallbackError: any) {
+        console.error('[Gemini Fallback Model Failed]:', fallbackError.message || fallbackError);
+        throw primaryError; // Throw the original error
+      }
     }
   }
 
