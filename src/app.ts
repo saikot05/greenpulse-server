@@ -1,3 +1,8 @@
+// Polyfill missing browser globals for pdfjs-dist compatibility in Node.js
+(globalThis as any).DOMMatrix = (globalThis as any).DOMMatrix || class DOMMatrix {};
+(globalThis as any).Path2D = (globalThis as any).Path2D || class Path2D {};
+(globalThis as any).ImageData = (globalThis as any).ImageData || class ImageData {};
+
 import express from 'express';
 import cors from 'cors';
 import { config } from './config/index.js';
