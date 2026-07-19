@@ -11,9 +11,20 @@ import { mainRouter } from './routes/index.js';
 const app = express();
 
 // CORS middleware configurations
+// CORS_ORIGIN supports comma-separated list for multiple origins
+// e.g. "http://localhost:3000,https://greenpulse-client.vercel.app"
+const allowedOrigins = config.CORS_ORIGIN.split(',').map((o) => o.trim());
+
 app.use(
   cors({
-    origin: config.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. curl, mobile apps, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: Origin '${origin}' is not allowed.`));
+    },
     credentials: true,
   })
 );
