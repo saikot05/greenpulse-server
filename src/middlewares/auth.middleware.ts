@@ -48,6 +48,34 @@ export const auth = async (
       return next(new AppError('Internal Server Error: Database connection is unavailable.', 500));
     }
 
+    // Check if the token is a JWT (header.payload.signature)
+    const isJwt = token.split('.').length === 3;
+
+    if (isJwt) {
+      try {
+        const { jwtVerify } = await import('jose-cjs');
+        const secretText = process.env.BETTER_AUTH_SECRET || 'JiSlpMZqvAFp7OOAwyH6Frab1laRTAfN';
+        const secret = new TextEncoder().encode(secretText);
+        
+        const { payload } = await jwtVerify(token, secret);
+        const userId = payload.sub;
+
+        if (!userId) {
+          return next(new AppError('Unauthorized: Invalid JWT payload.', 401));
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+          return next(new AppError('Unauthorized: User associated with this token no longer exists.', 401));
+        }
+
+        req.user = user;
+        return next();
+      } catch (jwtError: any) {
+        console.warn('[JWT Verification Failed, falling back to session check]:', jwtError.message);
+      }
+    }
+
     // Better Auth signed cookies are in the format: <token>.<signature>
     // The database only stores the first part (raw token).
     const rawToken = token.split('.')[0] ?? '';
