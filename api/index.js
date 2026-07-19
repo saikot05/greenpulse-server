@@ -3,9 +3,10 @@ globalThis.DOMMatrix = globalThis.DOMMatrix || class DOMMatrix {};
 globalThis.Path2D = globalThis.Path2D || class Path2D {};
 globalThis.ImageData = globalThis.ImageData || class ImageData {};
 
-import app from '../dist/app.js';
-import { connectDB } from '../dist/config/db.js';
-import { seedDatabase } from '../dist/config/seed.js';
+// Dynamically import dependencies to ensure polyfills run before modules are loaded
+const { default: app } = await import('../dist/app.js');
+const { connectDB } = await import('../dist/config/db.js');
+const { seedDatabase } = await import('../dist/config/seed.js');
 
 let isConnected = false;
 
