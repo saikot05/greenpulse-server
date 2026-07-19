@@ -10,7 +10,7 @@ import type { IMessage } from '../models/Conversation.model.js';
 import type { ICarbonAnalysis } from '../models/CarbonAnalysis.model.js';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import axios from 'axios';
-import { PDFParse } from 'pdf-parse';
+
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY || '',
