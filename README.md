@@ -1,110 +1,128 @@
-# GreenPulse AI — Full-Stack Agentic ESG Audit & Decarbonization Platform
+# GreenPulse AI — Enterprise ESG Audit & Decarbonization Platform
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](#)
-[![Tech Stack](https://img.shields.io/badge/stack-Next.js%20%7C%20Express%20%7C%20MongoDB-emerald.svg)](#)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](#)
+[![Tech Stack](https://img.shields.io/badge/Stack-Next.js%2016%20%7C%20Express%20%7C%20MongoDB-emerald.svg)](#)
 
-GreenPulse AI is a production-grade, enterprise-ready Environmental, Social, and Governance (ESG) platform. It provides organizations with automated Scope 1-3 carbon intelligence layers, interactive glassmorphic telemetry dashboards, and autonomous agent-led auditing workflows. The platform is designed to streamline corporate sustainability audits, identify high-risk emissions bottlenecks, and generate actionable decarbonization pathways.
+GreenPulse AI is a production-grade, enterprise-ready Environmental, Social, and Governance (ESG) audit and decarbonization intelligence platform. It empowers organizations with automated Scope 1, 2, and 3 carbon auditing, interactive telemetry visualization, and autonomous agent-led ESG workflows.
 
-🌐 **Live Dashboard Demo:** [GreenPulse Client Dashboard](https://greenpulse-client.vercel.app) | [GreenPulse Server API](https://greenpulse-server.vercel.app)
-
----
-
-## 🚀 Key Agentic AI Features
-
-### 1. AI Document Intelligence & Utility OCR (Feature A & F)
-* **Path**: `/items/add`
-* **Agent Behavior**: Orchestrates a self-healing, multi-model fallback pipeline (built on the Vercel AI SDK). If the primary Google Gemini model (`gemini-2.0-flash`) experiences rate limits (HTTP 429), server fatigue (500), or quota exhaustions, the system catches the error, logs a diagnostic entry, and transparently executes a failover routing request to Mistral AI (`pixtral-12b-2409`). It extracts structured audit values (kWh, tons of CO2e, fiscal dates, facility names) from scanned invoices and pre-fills forms with strict Zod schema validation.
-
-### 2. Context-Aware Decarbonization Copilot (Feature B & C)
-* **Path**: `/chat` and `/support`
-* **Agent Behavior**: A conversational assistant integrated directly with the user's logged audits. Using system prompts making it a "Senior Sustainability & Decarbonization Consultant for GreenPulse AI", it maintains memory history and utilizes tool-calling parameters (like `getAuditMetrics` or `suggestDecarbonizationStrategy`) to query live MongoDB documents and answer carbon footprint queries.
-
-### 3. Carbon Telemetry Data Analyzer (Feature D)
-* **Path**: `/carbon-analysis`
-* **Agent Behavior**: Accepts uploads of raw CSV and JSON energy telemetry logs. The AI calculates total emissions, pinpoints peak usage periods, rates energy efficiency (0-100), and auto-detects operational baseline anomalies (mechanical failures, thermal leakage, grid spikes) inside standard checklists, while feeding clean trend streams directly to interactive Recharts line charts.
-
-### 4. AI Auto Classification & Compliance Tagging (Feature E)
-* **Path**: Backend database triggers on creation.
-* **Agent Behavior**: Analyzes user-entered descriptions and facility records using a structured Gemini schema parser to generate 3-5 tracking hashtags (such as `#Scope2Spike`, `#GridDependence`, or `#FossilOffsets`), appending them dynamically to the saved audit entries.
+🌐 **Live Deployments:** 
+* **Client Dashboard:** [https://greenpulse-client.vercel.app](https://greenpulse-client.vercel.app)
+* **Server API Gateway:** [https://greenpulse-server.vercel.app](https://greenpulse-server.vercel.app)
 
 ---
 
-## 🛠️ Technical Architecture
+## 🛠️ System Architecture
 
 ```mermaid
 graph TD
-    User([User Client]) -->|Next.js 16 / React 19| FE[Frontend Dashboard]
-    FE -->|TanStack Query / Axios| BE[Express Server Gateway]
+    User([Enterprise User]) -->|Next.js 16 Client App| FE[Frontend Telemetry UI]
+    FE -->|JSON REST Requests| BE[Express Server Gateway]
     BE -->|JWT Verification| Auth[Auth Middleware]
     BE -->|Mongoose ODM| DB[(MongoDB Atlas)]
-    BE -->|Vercel AI SDK| LLM{Agent Router}
-    LLM -->|Primary Client| Gemini[Google Gemini 2.0 Flash]
-    LLM -->|Failover Backup| Mistral[Mistral Pixtral 12B]
+    BE -->|Vercel AI SDK Router| LLM{AI Pipeline Router}
+    LLM -->|Primary Route| Gemini[Google Gemini 2.0 Flash]
+    LLM -->|Failover Route| Mistral[Mistral Pixtral 12B]
 ```
 
-### Frontend Component Structure
-* **Core Layout**: Next.js 16 App Router, TypeScript type safety, and Tailwind CSS.
-* **State & Fetching**: TanStack Query (React Query) handles mutation and queries, ensuring instantaneous client caching.
-* **Visualizations**: Responsive Recharts Line and Pie Charts mapping energy consumption against carbon equivalents.
-* **Responsive Guards**:
-  - All metrics cards wrap long layout labels (like `"Scope 2 (Indirect Energy)"`) utilizing flex-shrink guards, `min-w-0`, and `break-words`.
-  - Audits management tables utilize `w-full overflow-x-auto` wrappers and `max-w-md` cell padding limits.
-  - Interactive Audit Cards feature sleek glassmorphic overlays (`backdrop-blur-md bg-zinc-900/30 border border-zinc-800/80 hover:border-emerald-500/40`), group-hover image zoom transitions, and Unsplash mapping based on case-insensitive facility type matching.
-  - A premium custom `404 Not Found` page coordinates return-to-dashboard safety paths.
+### Technology Stack & Engineering Standards
+* **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS, TanStack Query (React Query) for state sync, and Recharts.
+* **Backend**: Node.js, Express, TypeScript (TSX/ESM compilation), and Mongoose ODM.
+* **Validation**: Dual-layer verification with client-side forms and backend Zod schema validations.
+* **Agentic AI Layers**: Multi-model failover routing built with the Vercel AI SDK.
 
-### Backend Layout
-* **Framework**: Node.js & Express.js written in TypeScript.
-* **ODM / Database**: MongoDB via Mongoose.
-* **Security**: HTTP-Only cookies, JWT session protection, CORS controls, and parameter sanitization wrappers.
+---
+
+## 🚀 Core Agentic AI Workflows
+
+### 1. Smart OCR Invoice Parser (Utility Bill Extraction)
+* **API Route**: `POST /api/v1/ai/parse-bill`
+* **Agent Logic**: Automatically processes uploaded PDF or image invoices (utility bills, fuel receipts). Uses a self-healing failover pipeline: if the primary `gemini-2.0-flash` fails due to quota or network limits, the request dynamically routes to `pixtral-12b-2409` as a failover. Extracts structured parameters:
+  * Facility Name & Address
+  * Total Fuel/Electricity Consumed (kWh, liters, therms)
+  * Calculated CO2e Emissions
+  * Audit Period / Billing Dates
+  
+### 2. Context-Aware ESG Consultant & Copilot
+* **API Route**: `POST /api/v1/ai/chat` | `GET /api/v1/ai/chat/history`
+* **Agent Logic**: System prompt instructs the model as a "Senior ESG Auditor & Decarbonization Consultant". Leverages historical user audits stored in MongoDB to provide contextual, data-driven advice on reducing Scope 1, 2, or 3 emissions.
+
+### 3. Telemetry Carbon & Anomaly Analyzer
+* **API Route**: `POST /api/v1/ai/analyze-data` | `POST /api/v1/carbon/analyze`
+* **Agent Logic**: Ingests massive CSV/JSON system telemetry logs. Performs mathematical aggregate carbon analysis, evaluates energy efficiency benchmarks (0-100), detects baseline anomalies (such as off-hours heating spikes or cooling leakage), and maps out immediate remediation steps.
+
+### 4. Automated Compliance Tagging
+* **Agent Logic**: Triggers automatically on audit creation. Performs NLP parsing of the facility description to auto-generate context tags (e.g., `#Scope2Spike`, `#CoalGridDependence`, `#HVACAnomaly`), which are indexable and queryable for database reporting.
+
+---
+
+## 🔌 API Endpoint Registry
+
+### ESG Auditing Endpoints
+| HTTP Method | Route | Authentication | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/audits` | Required (JWT) | Validates input via Zod and saves a new Scope 1-3 audit. |
+| `GET` | `/api/v1/audits` | Optional | Queries, searches, and filters ESG audits. |
+| `GET` | `/api/v1/audits/:id` | Optional | Retrieves a single detailed audit by ID. |
+| `DELETE` | `/api/v1/audits/:id` | Required (JWT) | Deletes an audit if created by the authenticated owner. |
+
+### AI & Carbon Intelligent Processing
+| HTTP Method | Route | Authentication | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/ai/parse-bill` | Required (JWT) | Multi-model fallback OCR parser for utility invoices. |
+| `POST` | `/api/v1/ai/chat` | Required (JWT) | Sessions-supported ESG chat assistant. |
+| `GET` | `/api/v1/ai/chat/history` | Required (JWT) | Retrieves session chat records from MongoDB. |
+| `POST` | `/api/v1/ai/analyze-data` | Required (JWT) | AI-driven CSV/JSON energy telemetry parsing. |
+| `POST` | `/api/v1/carbon/analyze` | Public | Utility-based calculation analytics for energy files. |
 
 ---
 
 ## 💻 Local Installation & Setup
 
 ### Prerequisites
-* **Node.js** v18 or later.
-* **MongoDB** instance (Local or MongoDB Atlas URI).
-* **API Keys**: Google Gemini API key and Mistral AI API key.
+* **Node.js** v18.0.0+
+* **MongoDB** (Atlas instance or local community server)
 
-### 1. Clone & Install Dependencies
+### 1. Clone & Download Dependencies
 ```bash
 # Clone the repository
 git clone https://github.com/saikot05/greenpulse.git
 cd greenpulse
 
-# Install Server Dependencies
+# Install API backend packages
 cd greenpulse-server
 npm install
 
-# Install Client Dependencies
+# Install UI client packages
 cd ../greenpulse-client
 npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env` file in the root of `greenpulse-server`:
+
+#### Backend Server Configuration (`greenpulse-server/.env`)
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/greenpulse
-JWT_SECRET=your_jwt_secret_token
-GEMINI_API_KEY=your_google_gemini_key
-MISTRAL_API_KEY=your_mistral_ai_key
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/greenpulse
+JWT_SECRET=your-secure-jwt-encryption-key
+GEMINI_API_KEY=your-gemini-developer-key
+MISTRAL_API_KEY=your-mistral-developer-key
 ```
 
-Create a `.env.local` file in the root of `greenpulse-client`:
+#### Frontend Client Configuration (`greenpulse-client/.env.local`)
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
 ```
 
 ### 3. Run Development Servers
-Start the backend server:
+Start backend compiler and server:
 ```bash
 cd greenpulse-server
 npm run dev
 ```
 
-Start the frontend client:
+Start Next.js frontend client:
 ```bash
 cd greenpulse-client
 npm run dev
@@ -112,58 +130,21 @@ npm run dev
 
 ---
 
-## 🔒 Verification & Build Logs
-Both backend and client repositories compile perfectly with zero linter errors or type check alerts.
+## 🛡️ Compilation & Validation Verification
+Both repositories feature strict lint rules and type definitions. Compilation is validated to pass clean of errors.
 
-### Backend Build Compilation
+### Server TypeScript Compilation
 ```bash
-> greenpulse-server@1.0.0 build
-> tsc
-
-# COMPILATION PASSED WITH CODE 0
+> tsc --noEmit
+# SUCCESS: Clean type verification check.
 ```
 
-### Frontend Build Compilation
+### Client Next.js Production Build
 ```bash
-> greenpulse-client@0.1.0 build
 > next build
-
-▲ Next.js 16.2.10 (Turbopack)
-- Environments: .env.local
-
-  Creating an optimized production build ...
-✓ Compiled successfully in 20.4s
-  Running TypeScript ...
-  Finished TypeScript in 20.8s ...
-  Collecting page data using 7 workers ...
-  Generating static pages using 7 workers (0/18) ...
-  Generating static pages using 7 workers (4/18) 
-  Generating static pages using 7 workers (8/18) 
-  Generating static pages using 7 workers (13/18) 
-✓ Generating static pages using 7 workers (18/18) in 1810ms
-  Finalizing page optimization ...
-
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-├ ○ /about
-├ ƒ /api/auth/[...all]
-├ ○ /carbon-analysis
-├ ○ /chat
-├ ○ /contact
-├ ○ /explore
-├ ƒ /explore/[id]
-├ ○ /items/add
-├ ○ /items/manage
-├ ○ /login
-├ ○ /privacy
-├ ○ /profile
-├ ○ /register
-├ ○ /settings
-├ ○ /support
-└ ○ /terms
-
-# BUILD COMPLETED SUCCESSFULLY
+✓ Compiled successfully
+✓ Generating static pages
+# SUCCESS: Production build compiled successfully.
 ```
 
 ---
