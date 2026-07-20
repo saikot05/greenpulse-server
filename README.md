@@ -6,7 +6,7 @@
 
 GreenPulse AI is a production-grade, enterprise-ready Environmental, Social, and Governance (ESG) platform. It provides organizations with automated Scope 1-3 carbon intelligence layers, interactive glassmorphic telemetry dashboards, and autonomous agent-led auditing workflows. The platform is designed to streamline corporate sustainability audits, identify high-risk emissions bottlenecks, and generate actionable decarbonization pathways.
 
-🌐 **Live Deployment Link:** `[🌐 Live Dashboard Demo Details Here]`
+🌐 **Live Dashboard Demo:** [GreenPulse Client Dashboard](https://greenpulse-client.vercel.app) | [GreenPulse Server API](https://greenpulse-server.vercel.app)
 
 ---
 
@@ -24,7 +24,7 @@ GreenPulse AI is a production-grade, enterprise-ready Environmental, Social, and
 * **Path**: `/carbon-analysis`
 * **Agent Behavior**: Accepts uploads of raw CSV and JSON energy telemetry logs. The AI calculates total emissions, pinpoints peak usage periods, rates energy efficiency (0-100), and auto-detects operational baseline anomalies (mechanical failures, thermal leakage, grid spikes) inside standard checklists, while feeding clean trend streams directly to interactive Recharts line charts.
 
-### 4. AI Auto Classification & Dynamic Tagging (Feature E)
+### 4. AI Auto Classification & Compliance Tagging (Feature E)
 * **Path**: Backend database triggers on creation.
 * **Agent Behavior**: Analyzes user-entered descriptions and facility records using a structured Gemini schema parser to generate 3-5 tracking hashtags (such as `#Scope2Spike`, `#GridDependence`, or `#FossilOffsets`), appending them dynamically to the saved audit entries.
 
