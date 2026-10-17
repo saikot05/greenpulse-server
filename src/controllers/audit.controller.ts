@@ -192,8 +192,11 @@ export class AuditController {
         return next(new AppError('Audit not found.', 404));
       }
 
-      // Verify ownership: cast to string
-      if (String(audit.createdBy) !== String(user.id)) {
+      // Verify ownership or admin privilege
+      const isOwner = String(audit.createdBy) === String(user.id);
+      const isAdmin = user.role === 'admin';
+
+      if (!isOwner && !isAdmin) {
         return next(new AppError('Forbidden: You can only delete audits that you created.', 403));
       }
 
