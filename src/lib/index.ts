@@ -1,2 +1,2 @@
-// Third-party library clients setup/wrappers (to be implemented)
-export {};
+export { prisma, Prisma } from './prisma.js';
+export { default } from './prisma.js';
