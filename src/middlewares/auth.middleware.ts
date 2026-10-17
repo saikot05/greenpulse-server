@@ -2,7 +2,13 @@ import type { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { AppError } from '../utils/AppError.js';
 import { User } from '../models/User.model.js';
-import type { AuthenticatedRequest } from '../interfaces/auth.interface.js';
+import { prisma } from '../lib/prisma.js';
+import {
+  safeParseUserRole,
+  isPrismaKnownRequestError,
+  USER_ROLE_TO_CLIENT,
+} from '../utils/prisma-helpers.js';
+import type { AuthenticatedRequest, AuthenticatedUser } from '../interfaces/auth.interface.js';
 
 /**
  * Lazy-initialised, module-level JWKS cache.
@@ -22,6 +28,83 @@ async function getRemoteJWKS(authBaseUrl: string) {
     _jwksBaseUrl = authBaseUrl;
   }
   return _jwksSet;
+}
+
+/**
+ * Resolves a user from PostgreSQL, or JIT syncs them from MongoDB Better Auth collection.
+ * Uses findUnique first to avoid unnecessary database writes on active sessions.
+ */
+async function resolveAndSyncUser(userId: string): Promise<AuthenticatedUser> {
+  // 1. Check PostgreSQL first (zero-write fast path)
+  let pgUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  // 2. If missing in Postgres, JIT sync from MongoDB Better Auth 'user' collection
+  if (!pgUser) {
+    const mongoUser = await User.findById(userId);
+    if (!mongoUser) {
+      throw new AppError('Unauthorized: User associated with this token no longer exists.', 401);
+    }
+
+    // NOTE: Role is synced once on first login (known limitation).
+    // Subsequent role changes in Better Auth / MongoDB will not automatically propagate
+    // to PostgreSQL unless explicitly synchronized.
+    const role = safeParseUserRole(mongoUser.role);
+
+    try {
+      pgUser = await prisma.user.create({
+        data: {
+          id: String(mongoUser._id),
+          email: mongoUser.email,
+          name: mongoUser.name,
+          avatarUrl: mongoUser.avatarUrl ?? null,
+          role,
+          organization: mongoUser.organization ?? null,
+        },
+      });
+    } catch (error: unknown) {
+      if (isPrismaKnownRequestError(error) && error.code === 'P2002') {
+        const target = error.meta?.target;
+        const isEmailConflict =
+          (Array.isArray(target) && target.includes('email')) ||
+          (typeof target === 'string' && target.includes('email'));
+
+        if (isEmailConflict) {
+          console.error(
+            '[User Sync Conflict]: A user with this email address already exists in PostgreSQL under a different ID.'
+          );
+          throw new AppError(
+            'Account conflict: A user with this email already exists in the system.',
+            409
+          );
+        }
+
+        // Id race condition: another concurrent request created the record first; reload it
+        pgUser = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (!pgUser) {
+          throw new AppError('Internal Server Error: Failed to resolve user after concurrent creation.', 500);
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  // 3. Construct authenticated user with _id alias and client-compatible role
+  return {
+    id: pgUser.id,
+    _id: pgUser.id,
+    email: pgUser.email,
+    name: pgUser.name,
+    avatarUrl: pgUser.avatarUrl,
+    role: USER_ROLE_TO_CLIENT[pgUser.role],
+    organization: pgUser.organization,
+    createdAt: pgUser.createdAt,
+    updatedAt: pgUser.updatedAt,
+  };
 }
 
 /**
@@ -82,15 +165,11 @@ export const auth = async (
       try {
         const { jwtVerify } = await import('jose-cjs');
 
-        // BETTER_AUTH_URL is the URL of the Next.js frontend that runs Better Auth
-        // e.g. "https://greenpulse-client.vercel.app" in production
-        //      "http://localhost:3000" in development
         const authBaseUrl =
           process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
 
         const JWKS = await getRemoteJWKS(authBaseUrl);
 
-        // issuer and audience both default to BASE_URL in Better Auth
         const { payload } = await jwtVerify(token, JWKS, {
           issuer: authBaseUrl,
           audience: authBaseUrl,
@@ -101,19 +180,13 @@ export const auth = async (
           return next(new AppError('Unauthorized: JWT is missing subject claim.', 401));
         }
 
-        const user = await User.findById(userId);
-        if (!user) {
-          return next(
-            new AppError('Unauthorized: User associated with this token no longer exists.', 401)
-          );
-        }
-
-        req.user = user;
+        req.user = await resolveAndSyncUser(userId);
         return next();
-      } catch (jwtError: any) {
+      } catch (jwtError: unknown) {
+        const errorMsg = jwtError instanceof Error ? jwtError.message : String(jwtError);
         console.warn(
           '[Auth Middleware] JWT verification failed, falling back to session lookup:',
-          jwtError.message
+          errorMsg
         );
         // Fall through to opaque session token verification below
       }
@@ -143,14 +216,7 @@ export const auth = async (
     }
 
     const userId = String(session.userId);
-    const user = await User.findById(userId);
-    if (!user) {
-      return next(
-        new AppError('Unauthorized: User associated with this session no longer exists.', 401)
-      );
-    }
-
-    req.user = user;
+    req.user = await resolveAndSyncUser(userId);
     next();
   } catch (error) {
     next(error);
