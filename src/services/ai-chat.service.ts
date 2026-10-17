@@ -43,7 +43,7 @@ export class AiChatService {
     try {
       // 1. Query current user's audits to build static context for the prompt
       const userAudits = await esgAuditRepository.find({
-        createdBy: new Types.ObjectId(String(userId))
+        createdBy: String(userId)
       });
 
       const auditSummaryList = userAudits.map((a: any) => 
@@ -123,7 +123,7 @@ Be professional, structured, and prioritize carbon reductions.`;
             ),
             execute: async () => {
               const audits = await esgAuditRepository.find({
-                createdBy: new Types.ObjectId(String(userId))
+                createdBy: String(userId)
               });
 
               let totalKwh = 0;

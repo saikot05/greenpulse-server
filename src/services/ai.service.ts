@@ -329,7 +329,7 @@ Respond strictly in JSON.`;
     try {
       // 1. Fetch user's audits for context
       const userAudits = await esgAuditRepository.find({
-        createdBy: new Types.ObjectId(userId),
+        createdBy: userId,
       });
 
       const auditsCtx = userAudits.map((a) => ({
