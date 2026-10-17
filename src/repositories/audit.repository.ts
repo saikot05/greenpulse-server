@@ -80,27 +80,15 @@ export class EsgAuditRepository {
       const where: Prisma.EsgAuditWhereInput = {};
 
       if (facilityType) {
-        try {
-          where.facilityType = safeParseFacilityType(facilityType);
-        } catch {
-          // If unparseable enum filter, ignore
-        }
+        where.facilityType = safeParseFacilityType(facilityType);
       }
 
       if (riskRating) {
-        try {
-          where.riskRating = safeParseRiskRating(riskRating);
-        } catch {
-          // Ignore
-        }
+        where.riskRating = safeParseRiskRating(riskRating);
       }
 
       if (scopeCategory) {
-        try {
-          where.scopeCategory = safeParseScopeCategory(scopeCategory);
-        } catch {
-          // Ignore
-        }
+        where.scopeCategory = safeParseScopeCategory(scopeCategory);
       }
 
       if (auditYear && !isNaN(Number(auditYear))) {
