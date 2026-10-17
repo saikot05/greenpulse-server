@@ -1,5 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import type { JWTPayload, JWTVerifyGetKey } from 'jose-cjs';
 import { AppError } from '../utils/AppError.js';
 import { User } from '../models/User.model.js';
 import { prisma } from '../lib/prisma.js';
@@ -17,10 +18,10 @@ import type { AuthenticatedRequest, AuthenticatedUser } from '../interfaces/auth
  * We cache the RemoteJWKSet so the public key is only fetched once
  * (and re-fetched automatically if the kid rotates).
  */
-let _jwksSet: any = null;
+let _jwksSet: JWTVerifyGetKey | null = null;
 let _jwksBaseUrl = '';
 
-async function getRemoteJWKS(authBaseUrl: string) {
+async function getRemoteJWKS(authBaseUrl: string): Promise<JWTVerifyGetKey> {
   // Re-create the set only if the base URL has changed (shouldn't happen in production)
   if (!_jwksSet || _jwksBaseUrl !== authBaseUrl) {
     const { createRemoteJWKSet } = await import('jose-cjs');
@@ -108,6 +109,22 @@ async function resolveAndSyncUser(userId: string): Promise<AuthenticatedUser> {
 }
 
 /**
+ * Handles database resolution and sync errors without exposing sensitive credentials,
+ * connection strings, or masking database outages as auth failures.
+ */
+function handleUserSyncError(syncError: unknown, next: NextFunction): void {
+  if (syncError instanceof AppError) {
+    return next(syncError);
+  }
+
+  const errorName = syncError instanceof Error ? syncError.name : 'UnknownError';
+  const prismaCode = isPrismaKnownRequestError(syncError) ? ` [${syncError.code}]` : '';
+
+  console.error(`[Auth Middleware] User resolution/sync failed: ${errorName}${prismaCode}`);
+  return next(new AppError('Internal Server Error: Failed to resolve user account.', 500));
+}
+
+/**
  * Authentication Middleware.
  *
  * Token resolution priority:
@@ -162,6 +179,8 @@ export const auth = async (
     const isJwt = token.split('.').length === 3;
 
     if (isJwt) {
+      let verifiedPayload: JWTPayload | null = null;
+
       try {
         const { jwtVerify } = await import('jose-cjs');
 
@@ -175,13 +194,7 @@ export const auth = async (
           audience: authBaseUrl,
         });
 
-        const userId = payload.sub;
-        if (!userId) {
-          return next(new AppError('Unauthorized: JWT is missing subject claim.', 401));
-        }
-
-        req.user = await resolveAndSyncUser(userId);
-        return next();
+        verifiedPayload = payload;
       } catch (jwtError: unknown) {
         const errorMsg = jwtError instanceof Error ? jwtError.message : String(jwtError);
         console.warn(
@@ -189,6 +202,20 @@ export const auth = async (
           errorMsg
         );
         // Fall through to opaque session token verification below
+      }
+
+      if (verifiedPayload) {
+        const userId = verifiedPayload.sub;
+        if (!userId) {
+          return next(new AppError('Unauthorized: JWT is missing subject claim.', 401));
+        }
+
+        try {
+          req.user = await resolveAndSyncUser(userId);
+          return next();
+        } catch (syncError: unknown) {
+          return handleUserSyncError(syncError, next);
+        }
       }
     }
 
@@ -216,8 +243,12 @@ export const auth = async (
     }
 
     const userId = String(session.userId);
-    req.user = await resolveAndSyncUser(userId);
-    next();
+    try {
+      req.user = await resolveAndSyncUser(userId);
+      return next();
+    } catch (syncError: unknown) {
+      return handleUserSyncError(syncError, next);
+    }
   } catch (error) {
     next(error);
   }
