@@ -6,6 +6,7 @@ jspm_packages/
 dist/
 build/
 out/
+src/generated/
 
 # Log files
 npm-debug.log*
