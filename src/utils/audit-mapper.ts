@@ -154,7 +154,10 @@ export function safeParseDecarbonizationPriority(value: unknown): Decarbonizatio
     const parsed = DECARB_PRIORITY_CLIENT_TO_PRISMA[key] || DECARB_PRIORITY_CLIENT_TO_PRISMA[value.trim()];
     if (parsed) return parsed;
   }
-  return DecarbonizationPriority.MEDIUM;
+  throw new AppError(
+    `Invalid decarbonizationPriority: "${value}". Must be one of: High, Medium, Low.`,
+    400
+  );
 }
 
 // ─── Prisma Result with Relations Type ────────────────────────────────────────
