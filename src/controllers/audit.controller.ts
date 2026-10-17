@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
 import { esgAuditRepository } from '../repositories/index.js';
 import { aiService } from '../services/ai.service.js';
+import { CarbonAnalysis } from '../models/CarbonAnalysis.model.js';
 import { AppError } from '../utils/AppError.js';
 import type { AuthenticatedRequest } from '../interfaces/auth.interface.js';
 
@@ -57,13 +57,13 @@ export class AuditController {
             estimatedCarbonTons: carbonTons,
             energyUsageKwh: auditData.energyUsageKwh,
           });
-        } catch (error) {
+        } catch {
           console.warn('[Audit AI Tags Fallback]: Failed to generate tags using AI. Using static defaults.');
-          auditData.tags = ['#CarbonAudit', '#Sustainability', `#${auditData.facilityType.replace(/\s+/g, '')}`];
+          auditData.tags = ['#CarbonAudit', '#Sustainability', `#${String(auditData.facilityType).replace(/\s+/g, '')}`];
         }
       }
 
-      // 2. Generate nested AI insights to satisfy Mongoose validation constraint
+      // 2. Generate nested AI insights to satisfy validation constraint
       if (!auditData.aiInsights) {
         try {
           auditData.aiInsights = await aiService.generateAiInsights({
@@ -75,7 +75,7 @@ export class AuditController {
             estimatedCarbonTons: carbonTons,
             energyUsageKwh: auditData.energyUsageKwh,
           });
-        } catch (error) {
+        } catch {
           console.warn('[Audit AI Insights Fallback]: Failed to generate insights using AI. Using static defaults.');
           auditData.aiInsights = {
             decarbonizationPriority: carbonTons > 100 ? 'High' : carbonTons > 30 ? 'Medium' : 'Low',
@@ -83,8 +83,8 @@ export class AuditController {
             recommendedActions: [
               'Conduct a comprehensive energy audit to identify baseline consumption inefficiencies.',
               'Transition facility lightning and HVAC systems to modern energy-efficient alternatives.',
-              'Implement real-time smart metering and sub-metering telemetry monitors.'
-            ]
+              'Implement real-time smart metering and sub-metering telemetry monitors.',
+            ],
           };
         }
       }
@@ -94,12 +94,9 @@ export class AuditController {
         auditData.imageUrl = getFacilityFallbackImage(auditData.facilityType);
       }
 
-      // Convert creator ID from Better Auth string to Mongoose ObjectId
-      const createdBy = new Types.ObjectId(String(user._id));
-
       const newAudit = await esgAuditRepository.create({
         ...auditData,
-        createdBy,
+        createdBy: user.id,
       });
 
       res.status(201).json({
@@ -127,12 +124,10 @@ export class AuditController {
       const result = await esgAuditRepository.findWithFilters(queryParams);
 
       if (result && Array.isArray(result.results)) {
-        result.results = result.results.map((audit: any) => {
-          const plainAudit = audit.toObject ? audit.toObject() : audit;
-          if (!plainAudit.imageUrl) {
-            plainAudit.imageUrl = getFacilityFallbackImage(plainAudit.facilityType);
+        result.results.forEach((audit) => {
+          if (!audit.imageUrl) {
+            audit.imageUrl = getFacilityFallbackImage(audit.facilityType);
           }
-          return plainAudit;
         });
       }
 
@@ -162,14 +157,13 @@ export class AuditController {
         return next(new AppError('Audit not found.', 404));
       }
 
-      const plainAudit = audit.toObject ? audit.toObject() : audit;
-      if (!plainAudit.imageUrl) {
-        plainAudit.imageUrl = getFacilityFallbackImage(plainAudit.facilityType);
+      if (!audit.imageUrl) {
+        audit.imageUrl = getFacilityFallbackImage(audit.facilityType);
       }
 
       res.status(200).json({
         status: 'success',
-        data: plainAudit,
+        data: audit,
       });
     } catch (error) {
       next(error);
@@ -198,12 +192,18 @@ export class AuditController {
         return next(new AppError('Audit not found.', 404));
       }
 
-      // Verify ownership: cast MongoDB User ID and audit createdBy to strings for comparison
-      if (audit.createdBy.toString() !== String(user._id)) {
+      // Verify ownership: cast to string
+      if (String(audit.createdBy) !== String(user.id)) {
         return next(new AppError('Forbidden: You can only delete audits that you created.', 403));
       }
 
       await esgAuditRepository.deleteById(String(id));
+
+      // Clean up dangling references in MongoDB CarbonAnalysis
+      await CarbonAnalysis.updateMany(
+        { auditId: String(id) },
+        { $unset: { auditId: '' } }
+      );
 
       res.status(200).json({
         status: 'success',
