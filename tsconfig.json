@@ -41,9 +41,13 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "api/**/*",
     "dist/**/*",
-    "node_modules"
+    "node_modules",
+    "prisma.config.ts"
   ]
 }
