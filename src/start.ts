@@ -2,7 +2,6 @@ import { Server } from 'http';
 import app from './app.js';
 import { config } from './config/index.js';
 import { connectDB, closeDB } from './config/db.js';
-import { seedDatabase } from './config/seed.js';
 
 let server: Server;
 
@@ -12,9 +11,6 @@ let server: Server;
 const bootstrap = async (): Promise<void> => {
   // Establish database connection first
   await connectDB();
-
-  // Run database seeder to ensure default ESG records are loaded
-  await seedDatabase();
 
   // Start Express HTTP listener
   server = app.listen(config.PORT, () => {
