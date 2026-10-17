@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN            @map("admin")
+  FACILITY_MANAGER @map("facility_manager")
+  AUDITOR          @map("auditor")
+}
+
+enum FacilityType {
+  MANUFACTURING    @map("Manufacturing")
+  DATA_CENTER      @map("Data Center")
+  CORPORATE_OFFICE @map("Corporate Office")
+  LOGISTICS_HUB    @map("Logistics Hub")
+  RETAIL_STORE     @map("Retail Store")
+}
+
+enum ScopeCategory {
+  SCOPE_1 @map("Scope 1 (Direct)")
+  SCOPE_2 @map("Scope 2 (Indirect Energy)")
+  SCOPE_3 @map("Scope 3 (Value Chain)")
+}
+
+enum RiskRating {
+  LOW_CARBON       @map("Low Carbon")
+  MODERATE_IMPACT  @map("Moderate Impact")
+  HIGH_EMISSIONS   @map("High Emissions")
+  CRITICAL_FAILURE @map("Critical Failure")
+}
+
+enum DecarbonizationPriority {
+  HIGH   @map("High")
+  MEDIUM @map("Medium")
+  LOW    @map("Low")
+}
+
+enum AiProvider {
+  GEMINI  @map("gemini")
+  MISTRAL @map("mistral")
+}
+
+enum BillProcessingStatus {
+  PENDING   @map("pending")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+}
+
+model User {
+  id           String        @id // Exact Better Auth user ID (string representation of MongoDB ObjectId). NO default.
+  email        String        @unique
+  name         String
+  avatarUrl    String?
+  role         UserRole      @default(FACILITY_MANAGER)
+  organization String?
+  audits       EsgAudit[]
+  utilityBills UtilityBill[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model EsgAudit {
+  id               String        @id @default(cuid())
+  title            String
+  facilityName     String
+  facilityType     FacilityType
+  location         String
+  auditYear        Int
+  scopeCategory    ScopeCategory
+  carbonScoreTons  Decimal       @db.Decimal(12, 2)
+  energyUsageKwh   Decimal       @db.Decimal(14, 2)
+  riskRating       RiskRating
+  shortDescription String        @db.Text
+  fullOverview     String        @db.Text
+  imageUrl         String?
+  createdBy        String
+  user             User          @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  aiInsight        AiInsight?
+  tags             Tag[]
+  utilityBills     UtilityBill[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([facilityType, riskRating, auditYear(sort: Desc)])
+  @@index([scopeCategory])
+  @@index([createdBy])
+  @@map("esg_audits")
+}
+
+model AiInsight {
+  id                      String                  @id @default(cuid())
+  auditId                 String                  @unique
+  audit                   EsgAudit                @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  decarbonizationPriority DecarbonizationPriority
+  estimatedCostSavingsUsd Decimal                 @db.Decimal(12, 2)
+  recommendedActions      String[]
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@map("ai_insights")
+}
+
+model Tag {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  audits    EsgAudit[]
+  createdAt DateTime   @default(now())
+
+  @@map("tags")
+}
+
+model UtilityBill {
+  id                  String               @id @default(cuid())
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditId             String?
+  audit               EsgAudit?            @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  facilityName        String
+  location            String?
+  facilityType        FacilityType
+  energyUsageKwh      Decimal              @db.Decimal(14, 2)
+  estimatedCarbonTons Decimal              @db.Decimal(12, 2)
+  scopeCategory       ScopeCategory
+  riskRating          RiskRating
+  shortDescription    String               @db.Text
+  fullOverview        String               @db.Text
+  provider            AiProvider           @default(GEMINI)
+  status              BillProcessingStatus @default(COMPLETED)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([auditId])
+  @@map("utility_bills")
+}
