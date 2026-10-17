@@ -23,7 +23,7 @@ export interface IAiEvaluation {
 }
 
 export interface ICarbonAnalysis extends Document {
-  auditId?: Types.ObjectId;
+  auditId?: string;
   uploadedBy: Types.ObjectId;
   fileName: string;
   fileType: FileType;
@@ -98,9 +98,9 @@ const AiEvaluationSchema = new Schema<IAiEvaluation>(
 const CarbonAnalysisSchema = new Schema<ICarbonAnalysis>(
   {
     auditId: {
-      type: Schema.Types.ObjectId,
-      ref: 'EsgAudit',
+      type: String,
       required: false,
+      index: true,
     },
     uploadedBy: {
       type: Schema.Types.ObjectId,
