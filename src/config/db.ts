@@ -1,5 +1,13 @@
+import dns from 'node:dns';
 import mongoose from 'mongoose';
 import { config } from './index.js';
+
+// Resolve MongoDB Atlas SRV records reliably on Windows environments
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch {
+  // Ignore if permissions or platform does not support setServers
+}
 
 /**
  * Connects to MongoDB database using Mongoose.
