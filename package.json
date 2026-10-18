@@ -13,6 +13,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:backfill": "tsx src/scripts/backfill-users.ts",
+    "db:migrate-audits": "tsx src/scripts/migrate-audits.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

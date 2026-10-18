@@ -26,6 +26,8 @@ export const uploadMiddleware = multer({
 const IParsedBillResponseSchema = z.object({
   facilityName: z.string().describe('The name of the consumer, company, or building on the bill'),
   facilityType: z.enum(['Manufacturing', 'Data Center', 'Corporate Office', 'Logistics Hub', 'Retail Store']),
+  location: z.string().optional().describe('City, State, Country or address found on the bill if visible, otherwise omit'),
+  billingYear: z.number().int().optional().describe('The 4-digit calendar year of the bill if visible (e.g. 2025, 2026), otherwise omit'),
   energyUsageKwh: z.number().describe('Total energy consumed in kWh'),
   estimatedCarbonTons: z.number().describe('Estimated CO2 equivalent in metric tons'),
   scopeCategory: z.enum(['Scope 1 (Direct)', 'Scope 2 (Indirect Energy)', 'Scope 3 (Value Chain)']),
@@ -53,6 +55,8 @@ export class AiController {
 
       const prompt = `You are an expert ESG sustainability analyst. Analyze this utility bill or invoice and extract all sustainability and energy data.
     
+If visible on the bill, extract the location (city, state, country, or physical address) and billingYear (4-digit calendar year like 2025 or 2026). If not found, omit them.
+
 If certain values are missing or cannot be visibly found, use these safe defaults to prevent validation errors:
 - For facilityName, use "Unknown Facility".
 - For facilityType, choose one of exactly: 'Manufacturing', 'Data Center', 'Corporate Office', 'Logistics Hub', or 'Retail Store'. Default to 'Corporate Office' if not clear.
