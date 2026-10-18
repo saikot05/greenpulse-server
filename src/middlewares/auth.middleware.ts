@@ -32,69 +32,148 @@ async function getRemoteJWKS(authBaseUrl: string): Promise<JWTVerifyGetKey> {
 }
 
 /**
+ * Safely fetches a user document from MongoDB by ID, checking both Mongoose
+ * and raw collection queries with ObjectId/String format resilience.
+ * Queries only the database the app is connected to.
+ */
+async function findMongoUserById(userId: string): Promise<any | null> {
+  const is24Hex = /^[0-9a-fA-F]{24}$/.test(userId);
+  if (is24Hex) {
+    const mUser = await User.findById(userId).catch(() => null);
+    if (mUser) return mUser;
+  }
+
+  const db = mongoose.connection.db;
+  if (db) {
+    const query = is24Hex
+      ? { $or: [{ _id: new mongoose.Types.ObjectId(userId) }, { _id: userId }, { id: userId }] }
+      : { $or: [{ _id: userId }, { id: userId }] };
+
+    const rawDoc = await db.collection('user').findOne(query as any).catch(() => null);
+    if (rawDoc) return rawDoc;
+  }
+
+  return null;
+}
+
+/**
  * Resolves a user from PostgreSQL, or JIT syncs them from MongoDB Better Auth collection.
  * Uses findUnique first to avoid unnecessary database writes on active sessions.
  */
-async function resolveAndSyncUser(userId: string): Promise<AuthenticatedUser> {
-  // 1. Check PostgreSQL first (zero-write fast path)
+async function resolveAndSyncUser(
+  userId: string,
+  fallbackClaims?: {
+    email?: string | undefined;
+    name?: string | undefined;
+    role?: string | undefined;
+    emailVerified?: boolean | undefined;
+  }
+): Promise<AuthenticatedUser> {
+  // 1. Check PostgreSQL first by exact ID (zero-write fast path)
   let pgUser = await prisma.user.findUnique({
     where: { id: userId },
   });
 
-  // 2. If missing in Postgres, JIT sync from MongoDB Better Auth 'user' collection
-  if (!pgUser) {
-    const mongoUser = await User.findById(userId);
-    if (!mongoUser) {
-      throw new AppError('Unauthorized: User associated with this token no longer exists.', 401);
+  if (pgUser) {
+    return {
+      id: pgUser.id,
+      _id: pgUser.id,
+      email: pgUser.email,
+      name: pgUser.name,
+      avatarUrl: pgUser.avatarUrl,
+      role: USER_ROLE_TO_CLIENT[pgUser.role],
+      organization: pgUser.organization,
+      createdAt: pgUser.createdAt,
+      updatedAt: pgUser.updatedAt,
+    };
+  }
+
+  // 2. Fetch user details from MongoDB in the connected database
+  const mongoUser = await findMongoUserById(userId);
+
+  const email = (mongoUser?.email || fallbackClaims?.email)?.toLowerCase().trim();
+  if (!email) {
+    throw new AppError('Unauthorized: User associated with this token no longer exists.', 401);
+  }
+
+  const name = mongoUser?.name || fallbackClaims?.name || 'User';
+  const avatarUrl = mongoUser?.avatarUrl || mongoUser?.image || null;
+  const role = safeParseUserRole(mongoUser?.role || fallbackClaims?.role);
+  const organization = mongoUser?.organization || null;
+  const isEmailVerified = Boolean(mongoUser?.emailVerified ?? fallbackClaims?.emailVerified);
+  const syncId = mongoUser?._id ? String(mongoUser._id) : userId;
+
+  // 3. Upsert into Neon:
+  // Only link an existing Neon user by email when the Mongo user's emailVerified is true.
+  // Otherwise, create a new Neon row by id.
+  try {
+    let linkedUser = null;
+    if (isEmailVerified) {
+      linkedUser = await prisma.user.findUnique({
+        where: { email },
+      });
     }
 
-    // NOTE: Role is synced once on first login (known limitation).
-    // Subsequent role changes in Better Auth / MongoDB will not automatically propagate
-    // to PostgreSQL unless explicitly synchronized.
-    const role = safeParseUserRole(mongoUser.role);
-
-    try {
-      pgUser = await prisma.user.create({
+    if (linkedUser) {
+      pgUser = await prisma.user.update({
+        where: { email },
         data: {
-          id: String(mongoUser._id),
-          email: mongoUser.email,
-          name: mongoUser.name,
-          avatarUrl: mongoUser.avatarUrl ?? null,
+          name,
+          avatarUrl: avatarUrl ?? linkedUser.avatarUrl,
           role,
-          organization: mongoUser.organization ?? null,
+          organization: organization ?? linkedUser.organization,
         },
       });
-    } catch (error: unknown) {
-      if (isPrismaKnownRequestError(error) && error.code === 'P2002') {
-        const target = error.meta?.target;
-        const isEmailConflict =
-          (Array.isArray(target) && target.includes('email')) ||
-          (typeof target === 'string' && target.includes('email'));
+    } else {
+      pgUser = await prisma.user.upsert({
+        where: { id: syncId },
+        update: {
+          email,
+          name,
+          avatarUrl,
+          role,
+          organization,
+        },
+        create: {
+          id: syncId,
+          email,
+          name,
+          avatarUrl,
+          role,
+          organization,
+        },
+      });
+    }
+  } catch (error: unknown) {
+    if (isPrismaKnownRequestError(error) && error.code === 'P2002') {
+      const target = error.meta?.target;
+      const isEmailConflict =
+        (Array.isArray(target) && target.includes('email')) ||
+        (typeof target === 'string' && target.includes('email'));
 
-        if (isEmailConflict) {
-          console.error(
-            '[User Sync Conflict]: A user with this email address already exists in PostgreSQL under a different ID.'
-          );
-          throw new AppError(
-            'Account conflict: A user with this email already exists in the system.',
-            409
-          );
-        }
-
-        // Id race condition: another concurrent request created the record first; reload it
-        pgUser = await prisma.user.findUnique({
-          where: { id: userId },
-        });
-        if (!pgUser) {
-          throw new AppError('Internal Server Error: Failed to resolve user after concurrent creation.', 500);
-        }
-      } else {
-        throw error;
+      if (isEmailConflict) {
+        console.error(
+          '[User Sync Conflict]: A user with this email address already exists in PostgreSQL under a different ID.'
+        );
+        throw new AppError(
+          'Account conflict: A user with this unverified email already exists in the system.',
+          409
+        );
       }
+
+      // Id race condition: another concurrent request created the record first; reload it
+      pgUser = await prisma.user.findUnique({
+        where: { id: syncId },
+      });
+      if (!pgUser) {
+        throw new AppError('Internal Server Error: Failed to resolve user after concurrent creation.', 500);
+      }
+    } else {
+      throw error;
     }
   }
 
-  // 3. Construct authenticated user with _id alias and client-compatible role
+  // 4. Construct authenticated user with _id alias and client-compatible role
   return {
     id: pgUser.id,
     _id: pgUser.id,
@@ -211,7 +290,14 @@ export const auth = async (
         }
 
         try {
-          req.user = await resolveAndSyncUser(userId);
+          req.user = await resolveAndSyncUser(userId, {
+            email: verifiedPayload.email as string | undefined,
+            name: verifiedPayload.name as string | undefined,
+            role: verifiedPayload.role as string | undefined,
+            emailVerified:
+              (verifiedPayload.email_verified as boolean | undefined) ??
+              (verifiedPayload.emailVerified as boolean | undefined),
+          });
           return next();
         } catch (syncError: unknown) {
           return handleUserSyncError(syncError, next);

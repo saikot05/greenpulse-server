@@ -7,6 +7,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   avatarUrl?: string;
+  image?: string;
   role: UserRole;
   organization?: string;
   createdAt: Date;
@@ -29,6 +30,10 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
     },
     avatarUrl: {
+      type: String,
+      trim: true,
+    },
+    image: {
       type: String,
       trim: true,
     },
